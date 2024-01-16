@@ -1,6 +1,6 @@
 obs = obslua
 source_name = ""
-window_class = ""
+default_icon = ""
 last_execution = 0
 UPDATE_INTERVAL = 3
 
@@ -8,12 +8,12 @@ function script_tick(_)
   local current_time = os.time()
   if current_time - last_execution > UPDATE_INTERVAL then
     last_execution = current_time
-    local active_window = os.capture('hyprctl -j activewindow | jq -r ".class"')
-    if active_window == window_class then
-      source_enable(true)
-    else
-      source_enable(false)
+    local window_class = os.capture('hyprctl -j activewindow | jq -r ".class"')
+    local icon = os.capture('/home/josh/.local/bin/get-icon '..window_class)
+    if icon == nil or icon == '' then
+      icon = default_icon
     end
+    set_icon(icon)
   end
 end
 
@@ -51,12 +51,23 @@ function source_enable(enable)
   end
 end
 
+function set_icon(icon)
+  local source = obs.obs_get_source_by_name(source_name)
+  if source ~= nil then
+    local settings = obs.obs_source_get_settings(source)
+    obs.obs_data_set_string(settings, "file", icon)
+    obs.obs_source_update(source, settings)
+    obs.obs_data_release(settings)
+    obs.obs_source_release(source)
+  end
+end
+
 function script_properties()
   local props = obs.obs_properties_create()
   local p = obs.obs_properties_add_list(props, "source", "Source",
                                         obs.OBS_COMBO_TYPE_EDITABLE,
                                         obs.OBS_COMBO_FORMAT_STRING)
-  obs.obs_properties_add_text(props, "class", "Window Class",
+  obs.obs_properties_add_text(props, "default", "Default Icon",
                                         obs.OBS_TEXT_DEFAULT)
   local sources = obs.obs_enum_sources()
   if sources ~= nil then
@@ -76,9 +87,9 @@ end
 
 function script_update(settings)
   local sn = obs.obs_data_get_string(settings, "source")
-  local wc = obs.obs_data_get_string(settings, "class")
+  local di = obs.obs_data_get_string(settings, "default")
   if source_name ~= sn then source_name = sn end
-  if window_class ~= wc then window_class = wc end
+  if default_icon ~= di then default_icon = di end
 end
 
 function script_defaults(settings) end
